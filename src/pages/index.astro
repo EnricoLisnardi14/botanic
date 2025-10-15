@@ -119,7 +119,7 @@ const titolo = "URBINO BOTANICAL GARDEN";
     white-space: nowrap; 
     display: inline-block; 
     transition: color 0.3s ease; 
-    animation: scroll-right-to-left 90s linear infinite; /* Velocità rallentata */
+    animation: scroll-right-to-left 90s linear infinite;
   }
   @keyframes scroll-right-to-left { 
     0% { transform: translateX(0%); } 
@@ -417,16 +417,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const noHerbariumMessage = document.getElementById('no-herbarium-message');
 
     let herbariumIds = [];
-    // [CORREZIONE 1] Caricamento sicuro da localStorage per evitare errori.
+    // Caricamento sicuro da localStorage per evitare errori che bloccano lo script.
     try {
         const storedIds = localStorage.getItem('herbarium');
-        // Controlla che storedIds non sia null o undefined prima di fare il parse
         if (storedIds) {
             herbariumIds = JSON.parse(storedIds);
         }
     } catch (error) {
-        console.error("Errore nel leggere l'erbario da localStorage:", error);
-        herbariumIds = []; // In caso di errore, resetta a un array vuoto
+        console.error("Errore nel leggere l'erbario da localStorage. Verrà resettato.", error);
+        herbariumIds = []; // In caso di errore, resetta a un array vuoto.
     }
 
     const saveHerbarium = () => {
@@ -472,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = e.target.closest('.item-container');
             if (!card) return;
             
-            // [CORREZIONE 2] Controlla che l'ID esista prima di manipolare i dati.
+            // Controllo di sicurezza per assicurarsi che esista un ID valido.
             const cardId = card.dataset.id;
             if (!cardId) {
                 console.error("L'elemento cliccato non ha un data-id valido.");
@@ -498,7 +497,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 5. INIZIALIZZAZIONE MAPPA (Leaflet.js) ---
     function initMap() {
-        if (typeof L === 'undefined') { return; }
+        if (typeof L === 'undefined') {
+            console.error('Libreria Leaflet non trovata.');
+            return; 
+        }
         const itemsWithCoords = items.filter(item => item.lat && item.lng);
         const centerLat = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lat, 0) / itemsWithCoords.length : 43.715;
         const centerLng = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lng, 0) / itemsWithCoords.length : 12.636;
