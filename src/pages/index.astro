@@ -1,16 +1,73 @@
 ---
+import Airtable from 'airtable';
 
+// Configura Airtable
+const base = new Airtable({
+  apiKey: import.meta.env.PUBLIC_AIRTABLE_API_KEY
+}).base(import.meta.env.PUBLIC_AIRTABLE_BASE_ID);
+
+// Recupera i dati
+let items = [];
+try {
+  const records = await base(import.meta.env.PUBLIC_AIRTABLE_TABLE_NAME)
+    .select({ maxRecords: 100 })
+    .all();
+ 
+  // Mappa i record nell'ordine e con i nomi richiesti
+  items = records.map(record => ({
+    id: record.id,
+    nome: record.fields.Name,
+    scientific: record.fields.Scientific,
+    divisione: record.fields.Divisione,
+    classe: record.fields.Classe,
+    sottoclasse: record.fields.Sottoclasse,
+    ordine: record.fields.Ordine,
+    famiglia: record.fields.Famiglia,
+    tribù: record.fields.Tribù,
+    genere: record.fields.Genere,
+    categoria: record.fields.Category,
+    description: record.fields.Description,
+    image: record.fields.Photo?.[0]?.url
+  }));
+} catch (error) {
+  console.error('Errore caricamento dati:', error);
+}
+
+const titolo = "Il mio archivio";
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+<html lang="it">
+    <head>
+        <meta charset="utf-8" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <meta name="viewport" content="width=device-width" />
+        <meta name="generator" content={Astro.generator} />
+        <title>Astro</title>
+        <style>
+            /* Aggiungi qui il tuo CSS */
+        </style>
+    </head>
+    <body>
+        <h1>{titolo}</h1>
+        <p>Elementi trovati: {items.length}</p>
+   
+        <div class="grid">
+          {items.map(item => (
+            <div class="card">
+                <h3>{item.nome}</h3> 
+                <h4>{item.scientific}</h4>
+				{item.divisione && <p><strong>Divisione:</strong> {item.divisione}</p>}
+				{item.classe && <p><strong>Classe:</strong> {item.classe}</p>}
+				{item.sottoclasse && <p><strong>Sottoclasse:</strong> {item.sottoclasse}</p>}
+				{item.ordine && <p><strong>Ordine:</strong> {item.ordine}</p>}
+				{item.famiglia && <p><strong>Famiglia:</strong> {item.famiglia}</p>}
+				{item.tribù && <p><strong>Tribù:</strong> {item.tribù}</p>}
+                {item.genere && <p><strong>Genere:</strong> {item.genere}</p>}
+				{item.category && <span class="category">{item.categoria}</span>}
+                <p>{item.Description}</p>
+				{item.image && <img src={item.image} alt={item.nome} />}
+            </div>
+          ))}
+        </div>
+    </body>
 </html>
