@@ -1,13 +1,12 @@
 ---
 import Airtable from 'airtable';
 
-// 1. CONFIGURAZIONE AIRTABLE (invariata)
+// 1. CONFIGURAZIONE AIRTABLE
 const base = new Airtable({
   apiKey: import.meta.env.PUBLIC_AIRTABLE_API_KEY
 }).base(import.meta.env.PUBLIC_AIRTABLE_BASE_ID);
 
-// 2. RECUPERO DATI
-// La logica di raggruppamento non è più necessaria per il nuovo layout.
+// 2. RECUPERO DATI DA AIRTABLE
 let items = [];
 try {
   const records = await base(import.meta.env.PUBLIC_AIRTABLE_TABLE_NAME)
@@ -21,20 +20,16 @@ try {
     famiglia: record.fields.Famiglia || 'N/D',
     categoria: record.fields.Category || 'Senza Categoria',
     image: record.fields.Photo?.[0]?.thumbnails?.large?.url || record.fields.Photo?.[0]?.url,
-    // Aggiungiamo le coordinate se esistono nel tuo Airtable (per la mappa)
-    // Assicurati che le colonne si chiamino 'Latitude' e 'Longitude'
     lat: record.fields.Latitude || null,
     lng: record.fields.Longitude || null,
   }));
 } catch (error) {
-  console.error('Errore caricamento dati:', error);
+  console.error('Errore durante il caricamento dei dati da Airtable:', error);
 }
 
-// 3. DATI PER IL MARQUEE (testo scorrevole)
-// Estraiamo alcune famiglie di piante per creare un testo dinamico
+// 3. DATI PER IL TEMPLATE
 const uniqueFamilies = [...new Set(items.map(item => item.famiglia).filter(Boolean))];
 const marqueeText = uniqueFamilies.slice(0, 10).join(' • ') + ' • ';
-
 const titolo = "URBINO BOTANICAL GARDEN";
 ---
 
@@ -46,82 +41,239 @@ const titolo = "URBINO BOTANICAL GARDEN";
     <meta name="generator" content={Astro.generator} />
     <title>{titolo}</title>
 
+    {/* Dipendenze esterne per la mappa */}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <style>
-  /* NUOVO STILE FORNITO */
   :root {
-    --bg-color: #ffffff; --text-color: #111111; --subtle-text-color: #666666;
-    --border-color: #eaeaea; --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg-color: #ffffff; 
+    --text-color: #111111; 
+    --subtle-text-color: #666666;
+    --border-color: #eaeaea; 
+    --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   html.dark {
-    --bg-color: #111111; --text-color: #eaeaea; --subtle-text-color: #999999; --border-color: #333333;
+    --bg-color: #111111; 
+    --text-color: #eaeaea; 
+    --subtle-text-color: #999999; 
+    --border-color: #333333;
   }
-  body { font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); margin: 0; transition: background-color 0.3s ease, color 0.3s ease;}
+  body { 
+    font-family: var(--font-main); 
+    background-color: var(--bg-color); 
+    color: var(--text-color); 
+    margin: 0; 
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
 
-  /* Elementi Comuni */
-  .site-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); position: sticky; top: 0; background-color: var(--bg-color); z-index: 10; }
-  .header-content { max-width: 1400px; width: 100%; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-  .site-title { font-weight: 600; font-size: 1rem; margin: 0; }
-  .site-nav { display: flex; align-items: center; gap: 0.5rem; }
-  #search-input, #theme-toggle { background: none; border: 1px solid var(--border-color); border-radius: 99px; color: var(--text-color); padding: 0.4rem 0.8rem; font-size: 0.9rem; cursor: pointer; }
-  .marquee-container { width: 100%; overflow: hidden; padding: 1rem 0; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color 0.3s ease; }
+  /* --- Elementi Comuni --- */
+  .site-header { 
+    padding: 1rem 1.5rem; 
+    border-bottom: 1px solid var(--border-color); 
+    position: sticky; top: 0; 
+    background-color: var(--bg-color); 
+    z-index: 10; 
+  }
+  .header-content { 
+    max-width: 1400px; 
+    width: 100%; 
+    margin: 0 auto; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+  }
+  .site-title { 
+    font-weight: 600; 
+    font-size: 1rem; 
+    margin: 0; 
+  }
+  .site-nav { 
+    display: flex; 
+    align-items: center; 
+    gap: 0.5rem; 
+  }
+  #search-input, #theme-toggle { 
+    background: none; 
+    border: 1px solid var(--border-color); 
+    border-radius: 99px; 
+    color: var(--text-color); 
+    padding: 0.4rem 0.8rem; 
+    font-size: 0.9rem; 
+    cursor: pointer; 
+  }
+  .marquee-container { 
+    width: 100%; 
+    overflow: hidden; 
+    padding: 1rem 0; 
+    border-bottom: 1px solid var(--border-color); 
+    cursor: pointer; 
+    transition: background-color 0.3s ease; 
+  }
   .marquee-container:hover { background-color: var(--text-color); }
   .marquee-container:hover .marquee-text { color: var(--bg-color); }
-  .marquee-text { font-size: 10rem; font-weight: 600; text-transform: uppercase; white-space: nowrap; display: inline-block; transition: color 0.3s ease; animation: scroll-right-to-left 90s linear infinite; }
-  @keyframes scroll-right-to-left { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
-  .main-content { max-width: 1400px; width: 100%; margin: 0 auto; padding: 1.5rem; box-sizing: border-box; }
+  .marquee-text { 
+    font-size: 10rem; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    white-space: nowrap; 
+    display: inline-block; 
+    transition: color 0.3s ease; 
+    animation: scroll-right-to-left 90s linear infinite; /* Velocità rallentata */
+  }
+  @keyframes scroll-right-to-left { 
+    0% { transform: translateX(0%); } 
+    100% { transform: translateX(-50%); } 
+  }
+  .main-content { 
+    max-width: 1400px; 
+    width: 100%; 
+    margin: 0 auto; 
+    padding: 1.5rem; 
+    box-sizing: border-box; 
+  }
   
-  /* Selettore Visualizzazione */
-  .view-switcher { display: flex; border: 1px solid var(--border-color); }
+  /* --- Selettore Visualizzazione --- */
+  .view-switcher { 
+    display: flex; 
+    border: 1px solid var(--border-color); 
+  }
   .view-button {
-    flex: 1; text-align: center; background: none; border: none;
-    color: var(--subtle-text-color); padding: 1rem 0; cursor: pointer;
-    font-size: 0.9rem; font-weight: 500; text-transform: uppercase;
+    flex: 1; 
+    text-align: center; 
+    background: none; 
+    border: none;
+    color: var(--subtle-text-color); 
+    padding: 1rem 0; 
+    cursor: pointer;
+    font-size: 0.9rem; 
+    font-weight: 500; 
+    text-transform: uppercase;
     transition: all 0.2s ease;
   }
   .view-button:hover { background-color: var(--border-color); }
-  .view-button.active { background-color: var(--text-color); color: var(--bg-color); cursor: default; }
+  .view-button.active { 
+    background-color: var(--text-color); 
+    color: var(--bg-color); 
+    cursor: default; 
+  }
   .view-button.active:hover { background-color: var(--text-color); }
   .view-button + .view-button { border-left: 1px solid var(--border-color); }
 
-  /* Contenitori Viste */
-  .view-container { display: none; padding-top: 2rem; }
+  /* --- Contenitori Viste --- */
+  .view-container { 
+    display: none; 
+    padding-top: 2rem; 
+  }
   .view-container.active { display: block; }
   
-  /* Vista a Griglia */
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
-  .card { border: 1px solid var(--border-color); overflow: hidden; position: relative; }
-  .card-link { text-decoration: none; color: inherit; display: block; }
-  .card img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background-color: var(--border-color); }
-  .card-content { padding: 0.75rem; }
-  .card-content h3 { font-size: 1rem; margin: 0 0 0.2rem 0; }
-  .card-content p { font-size: 0.9rem; margin: 0; color: var(--subtle-text-color); }
-  .herbarium-btn {
-    position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(255, 255, 255, 0.7);
-    border-radius: 50%; border: none; cursor: pointer; width: 30px; height: 30px;
-    font-size: 1.5rem; line-height: 28px; text-align: center; color: #111;
-    opacity: 0; transition: all 0.2s ease;
+  /* --- Vista Griglia --- */
+  .grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+    gap: 1rem; 
   }
-  html.dark .herbarium-btn { background: rgba(0,0,0,0.5); color: #fff; }
+  .card { 
+    border: 1px solid var(--border-color); 
+    overflow: hidden; 
+    position: relative; 
+  }
+  .card-link { 
+    text-decoration: none; 
+    color: inherit; 
+    display: block; 
+  }
+  .card img { 
+    width: 100%; 
+    aspect-ratio: 1 / 1; 
+    object-fit: cover; 
+    display: block; 
+    background-color: var(--border-color); 
+  }
+  .card-content { padding: 0.75rem; }
+  .card-content h3 { 
+    font-size: 1rem; 
+    margin: 0 0 0.2rem 0; 
+  }
+  .card-content p { 
+    font-size: 0.9rem; 
+    margin: 0; 
+    color: var(--subtle-text-color); 
+  }
+  .herbarium-btn {
+    position: absolute; 
+    top: 0.5rem; 
+    right: 0.5rem; 
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 50%; 
+    border: none; 
+    cursor: pointer; 
+    width: 30px; 
+    height: 30px;
+    font-size: 1.5rem; 
+    line-height: 28px; 
+    text-align: center; 
+    color: #111;
+    opacity: 0; 
+    transition: all 0.2s ease;
+  }
+  html.dark .herbarium-btn { 
+    background: rgba(0,0,0,0.5); 
+    color: #fff; 
+  }
   .card:hover .herbarium-btn { opacity: 1; }
-  .herbarium-btn.active { background: var(--text-color); color: var(--bg-color); opacity: 1; transform: rotate(45deg); }
+  .herbarium-btn.active { 
+    background: var(--text-color); 
+    color: var(--bg-color); 
+    opacity: 1; 
+    transform: rotate(45deg); 
+  }
   
-  /* Vista ad Archivio */
-  .archive-table { width: 100%; border-collapse: collapse; }
-  .archive-table th, .archive-table td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color); }
-  .archive-table th { font-weight: 600; text-transform: uppercase; font-size: 0.8rem; }
+  /* --- Vista Archivio --- */
+  .archive-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+  }
+  .archive-table th, .archive-table td { 
+    text-align: left; 
+    padding: 0.75rem 1rem; 
+    border-bottom: 1px solid var(--border-color); 
+  }
+  .archive-table th { 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    font-size: 0.8rem; 
+  }
   .archive-table tr { transition: background-color 0.2s ease; }
   .archive-table tr:hover { background-color: var(--border-color); }
-  .archive-table td img { width: 40px; height: 40px; object-fit: cover; vertical-align: middle; margin-right: 1rem; background-color: var(--border-color); }
+  .archive-table td img { 
+    width: 40px; 
+    height: 40px; 
+    object-fit: cover; 
+    vertical-align: middle; 
+    margin-right: 1rem; 
+    background-color: var(--border-color); 
+  }
 
-  /* Vista Mappa */
-  #map { height: 70vh; border: 1px solid var(--border-color); background-color: var(--border-color); }
-  .map-note { font-size: 0.8rem; color: var(--subtle-text-color); text-align: center; margin-top: 1rem; }
+  /* --- Vista Mappa --- */
+  #map { 
+    height: 70vh; 
+    border: 1px solid var(--border-color); 
+    background-color: var(--border-color); 
+  }
+  .map-note { 
+    font-size: 0.8rem; 
+    color: var(--subtle-text-color); 
+    text-align: center; 
+    margin-top: 1rem; 
+  }
   
-  /* Messaggi */
-  .message { text-align: center; padding: 4rem 1rem; color: var(--subtle-text-color); }
+  /* --- Messaggi Utente --- */
+  .message { 
+    text-align: center; 
+    padding: 4rem 1rem; 
+    color: var(--subtle-text-color); 
+  }
 </style>
 </head>
 <body>
@@ -203,8 +355,8 @@ const titolo = "URBINO BOTANICAL GARDEN";
         </div>
 
         <p id="no-results-message" class="message" style="display: none;">Nessun risultato trovato per la tua ricerca.</p>
-
     </main>
+
 <script define:vars={{ items }}>
 // --- SCRIPT PER L'INTERATTIVITÀ ---
 
@@ -214,16 +366,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
     
-    // Funzione per applicare il tema
     const applyTheme = (theme) => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
         localStorage.setItem('theme', theme);
     };
 
-    // Applica il tema salvato o quello di sistema
     applyTheme(localStorage.getItem('theme') || (prefersDark.matches ? 'dark' : 'light'));
 
-    // Evento per il click sul bottone
     themeToggle.addEventListener('click', () => {
         const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
         applyTheme(newTheme);
@@ -238,15 +387,12 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', () => {
             const targetViewId = button.dataset.view;
             
-            // Aggiorna stato attivo bottoni
             viewButtons.forEach(btn => btn.classList.toggle('active', btn === button));
             
-            // Mostra/nascondi contenitori
             viewContainers.forEach(container => {
                 container.classList.toggle('active', container.id === targetViewId);
             });
             
-            // Inizializza la mappa solo quando la sua vista viene aperta per la prima volta
             if (targetViewId === 'map-view' && !mapInitialized) {
                 initMap();
                 mapInitialized = true;
@@ -281,67 +427,75 @@ document.addEventListener('DOMContentLoaded', () => {
     const herbariumGrid = document.getElementById('herbarium-grid');
     const noHerbariumMessage = document.getElementById('no-herbarium-message');
 
-    // Carica l'erbario da localStorage
     let herbariumIds = JSON.parse(localStorage.getItem('herbarium')) || [];
 
-    // Funzione per salvare l'erbario
     const saveHerbarium = () => {
         localStorage.setItem('herbarium', JSON.stringify(herbariumIds));
     };
 
-    // Funzione per aggiornare lo stato dei bottoni '+'
     const updateHerbariumButtons = () => {
         document.querySelectorAll('.herbarium-btn').forEach(btn => {
-            const cardId = btn.closest('.item-container').dataset.id;
-            btn.classList.toggle('active', herbariumIds.includes(cardId));
+            const cardId = btn.closest('.item-container')?.dataset.id;
+            if (cardId) {
+                btn.classList.toggle('active', herbariumIds.includes(cardId));
+            }
         });
     };
-
-    // Funzione per renderizzare la vista Erbario
+    
+    // [FUNZIONE OTTIMIZZATA]
+    // Crea l'HTML delle card direttamente dai dati, senza clonare elementi dal DOM.
+    // Questo approccio è più veloce, stabile e affidabile.
     const renderHerbarium = () => {
-        herbariumGrid.innerHTML = ''; // Svuota la griglia
+        herbariumGrid.innerHTML = '';
         const favoriteItems = items.filter(item => herbariumIds.includes(item.id));
         
         if (favoriteItems.length > 0) {
-            favoriteItems.forEach(item => {
-                // Clona la card dalla griglia principale per non riscrivere il codice HTML
-                const originalCard = document.querySelector(`.card[data-id="${item.id}"]`);
-                if (originalCard) {
-                    herbariumGrid.appendChild(originalCard.cloneNode(true));
-                }
-            });
+            const cardsHTML = favoriteItems.map(item => `
+                <article class="card item-container" data-id="${item.id}" data-search-terms="${item.nome.toLowerCase()} ${item.scientific.toLowerCase()}">
+                    <a href="#" class="card-link" onclick="return false;">
+                        <img src="${item.image || 'https://via.placeholder.com/300'}" alt="Foto di ${item.nome}" loading="lazy" />
+                        <div class="card-content">
+                            <h3>${item.nome}</h3>
+                            <p>${item.scientific}</p>
+                        </div>
+                    </a>
+                    <button class="herbarium-btn active" title="Rimuovi dall'erbario">+</button>
+                </article>
+            `).join('');
+
+            herbariumGrid.innerHTML = cardsHTML;
             noHerbariumMessage.style.display = 'none';
         } else {
             noHerbariumMessage.style.display = 'block';
         }
-        // Ri-aggiorna i listener e lo stato dei bottoni nella nuova griglia clonata
-        setupHerbariumListeners(); 
     };
 
-    // Aggiungi listener ai bottoni (usando event delegation)
-    function setupHerbariumListeners() {
-        document.body.addEventListener('click', e => {
-            if (e.target.matches('.herbarium-btn')) {
-                const card = e.target.closest('.item-container');
-                const cardId = card.dataset.id;
+    // [LISTENER UNICO E OTTIMIZZATO]
+    // Un solo listener sul body gestisce tutti i click sui pulsanti '+'.
+    // Questo risolve il bug dei listener duplicati e del click "a intermittenza".
+    document.body.addEventListener('click', e => {
+        if (e.target.matches('.herbarium-btn')) {
+            e.preventDefault();
+            const card = e.target.closest('.item-container');
+            if (!card) return;
+            
+            const cardId = card.dataset.id;
+            const index = herbariumIds.indexOf(cardId);
 
-                if (herbariumIds.includes(cardId)) {
-                    // Rimuovi
-                    herbariumIds = herbariumIds.filter(id => id !== cardId);
-                } else {
-                    // Aggiungi
-                    herbariumIds.push(cardId);
-                }
-                saveHerbarium();
-                updateHerbariumButtons();
-
-                // Se siamo nella vista erbario, aggiornala subito
-                if(document.getElementById('herbarium-view').classList.contains('active')) {
-                    renderHerbarium();
-                }
+            if (index > -1) {
+                herbariumIds.splice(index, 1); // Rimuovi
+            } else {
+                herbariumIds.push(cardId); // Aggiungi
             }
-        });
-    }
+
+            saveHerbarium();
+            updateHerbariumButtons();
+
+            if (document.getElementById('herbarium-view').classList.contains('active')) {
+                renderHerbarium();
+            }
+        }
+    });
 
     // --- 5. INIZIALIZZAZIONE MAPPA (Leaflet.js) ---
     function initMap() {
@@ -350,36 +504,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Trova il centro della mappa basandosi sulla media delle coordinate
         const itemsWithCoords = items.filter(item => item.lat && item.lng);
-        let centerLat = 43.715; // Default: Urbino
-        let centerLng = 12.636;
-        let defaultZoom = 13;
+        const centerLat = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lat, 0) / itemsWithCoords.length : 43.715; // Default: Urbino
+        const centerLng = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lng, 0) / itemsWithCoords.length : 12.636;
 
-        if (itemsWithCoords.length > 0) {
-            centerLat = itemsWithCoords.reduce((sum, item) => sum + item.lat, 0) / itemsWithCoords.length;
-            centerLng = itemsWithCoords.reduce((sum, item) => sum + item.lng, 0) / itemsWithCoords.length;
-        }
-
-        const map = L.map('map').setView([centerLat, centerLng], defaultZoom);
+        const map = L.map('map').setView([centerLat, centerLng], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
         itemsWithCoords.forEach(item => {
-            const popupContent = `
-                <b>${item.nome}</b><br>
-                <i>${item.scientific}</i>
-            `;
-            L.marker([item.lat, item.lng]).addTo(map)
-                .bindPopup(popupContent);
+            const popupContent = `<b>${item.nome}</b><br><i>${item.scientific}</i>`;
+            L.marker([item.lat, item.lng]).addTo(map).bindPopup(popupContent);
         });
     }
 
-    // Inizializza tutto al caricamento della pagina
+    // --- INIZIALIZZAZIONE AL CARICAMENTO DELLA PAGINA ---
     updateHerbariumButtons();
-    setupHerbariumListeners();
 });
 </script>
 </body>
