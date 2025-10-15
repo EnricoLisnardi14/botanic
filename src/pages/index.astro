@@ -119,7 +119,7 @@ const titolo = "URBINO BOTANICAL GARDEN";
     white-space: nowrap; 
     display: inline-block; 
     transition: color 0.3s ease; 
-    animation: scroll-right-to-left 90s linear infinite;
+    animation: scroll-right-to-left 90s linear infinite; /* Velocità rallentata */
   }
   @keyframes scroll-right-to-left { 
     0% { transform: translateX(0%); } 
@@ -365,11 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. GESTIONE TEMA (DARK/LIGHT) ---
     const themeToggle = document.getElementById('theme-toggle');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    
     const applyTheme = (theme) => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
         localStorage.setItem('theme', theme);
     };
+
     applyTheme(localStorage.getItem('theme') || (prefersDark.matches ? 'dark' : 'light'));
+
     themeToggle.addEventListener('click', () => {
         const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
         applyTheme(newTheme);
@@ -379,17 +382,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewButtons = document.querySelectorAll('.view-button');
     const viewContainers = document.querySelectorAll('.view-container');
     let mapInitialized = false;
+
     viewButtons.forEach(button => {
         button.addEventListener('click', () => {
             const targetViewId = button.dataset.view;
+            
             viewButtons.forEach(btn => btn.classList.toggle('active', btn === button));
+            
             viewContainers.forEach(container => {
                 container.classList.toggle('active', container.id === targetViewId);
             });
+            
             if (targetViewId === 'map-view' && !mapInitialized) {
                 initMap();
                 mapInitialized = true;
             }
+
             if (targetViewId === 'herbarium-view') {
                 renderHerbarium();
             }
@@ -400,15 +408,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const allItems = document.querySelectorAll('.item-container');
     const noResultsMessage = document.getElementById('no-results-message');
+
     searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase().trim();
         let visibleCount = 0;
+
         allItems.forEach(item => {
             const itemTerms = item.dataset.searchTerms;
             const isVisible = itemTerms.includes(searchTerm);
             item.style.display = isVisible ? '' : 'none';
             if(isVisible) visibleCount++;
         });
+
         noResultsMessage.style.display = visibleCount === 0 ? 'block' : 'none';
     });
 
@@ -416,17 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const herbariumGrid = document.getElementById('herbarium-grid');
     const noHerbariumMessage = document.getElementById('no-herbarium-message');
 
-    let herbariumIds = [];
-    // Caricamento sicuro da localStorage per evitare errori che bloccano lo script.
-    try {
-        const storedIds = localStorage.getItem('herbarium');
-        if (storedIds) {
-            herbariumIds = JSON.parse(storedIds);
-        }
-    } catch (error) {
-        console.error("Errore nel leggere l'erbario da localStorage. Verrà resettato.", error);
-        herbariumIds = []; // In caso di errore, resetta a un array vuoto.
-    }
+    let herbariumIds = JSON.parse(localStorage.getItem('herbarium')) || [];
 
     const saveHerbarium = () => {
         localStorage.setItem('herbarium', JSON.stringify(herbariumIds));
@@ -441,6 +442,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
+    // [FUNZIONE OTTIMIZZATA]
+    // Crea l'HTML delle card direttamente dai dati, senza clonare elementi dal DOM.
+    // Questo approccio è più veloce, stabile e affidabile.
     const renderHerbarium = () => {
         herbariumGrid.innerHTML = '';
         const favoriteItems = items.filter(item => herbariumIds.includes(item.id));
@@ -458,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="herbarium-btn active" title="Rimuovi dall'erbario">+</button>
                 </article>
             `).join('');
+
             herbariumGrid.innerHTML = cardsHTML;
             noHerbariumMessage.style.display = 'none';
         } else {
@@ -465,23 +470,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // [LISTENER UNICO E OTTIMIZZATO]
+    // Un solo listener sul body gestisce tutti i click sui pulsanti '+'.
+    // Questo risolve il bug dei listener duplicati e del click "a intermittenza".
     document.body.addEventListener('click', e => {
         if (e.target.matches('.herbarium-btn')) {
             e.preventDefault();
             const card = e.target.closest('.item-container');
             if (!card) return;
             
-            // Controllo di sicurezza per assicurarsi che esista un ID valido.
             const cardId = card.dataset.id;
-            if (!cardId) {
-                console.error("L'elemento cliccato non ha un data-id valido.");
-                return;
-            }
+            const index = herbariumIds.indexOf(cardId);
 
-            const isFavorite = herbariumIds.includes(cardId);
-
-            if (isFavorite) {
-                herbariumIds = herbariumIds.filter(id => id !== cardId); // Rimuovi
+            if (index > -1) {
+                herbariumIds.splice(index, 1); // Rimuovi
             } else {
                 herbariumIds.push(cardId); // Aggiungi
             }
@@ -499,21 +501,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function initMap() {
         if (typeof L === 'undefined') {
             console.error('Libreria Leaflet non trovata.');
-            return; 
+            return;
         }
+
         const itemsWithCoords = items.filter(item => item.lat && item.lng);
-        const centerLat = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lat, 0) / itemsWithCoords.length : 43.715;
+        const centerLat = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lat, 0) / itemsWithCoords.length : 43.715; // Default: Urbino
         const centerLng = itemsWithCoords.length > 0 ? itemsWithCoords.reduce((sum, item) => sum + item.lng, 0) / itemsWithCoords.length : 12.636;
+
         const map = L.map('map').setView([centerLat, centerLng], 13);
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+
         itemsWithCoords.forEach(item => {
-            L.marker([item.lat, item.lng]).addTo(map).bindPopup(`<b>${item.nome}</b><br><i>${item.scientific}</i>`);
+            const popupContent = `<b>${item.nome}</b><br><i>${item.scientific}</i>`;
+            L.marker([item.lat, item.lng]).addTo(map).bindPopup(popupContent);
         });
     }
 
-    // --- INIZIALIZZAZIONE AL CARICAMENTO ---
+    // --- INIZIALIZZAZIONE AL CARICAMENTO DELLA PAGINA ---
     updateHerbariumButtons();
 });
 </script>
